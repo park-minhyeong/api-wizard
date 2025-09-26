@@ -47,6 +47,7 @@
   "author": "Min-Hyeong Park <minhyeong.dev@gmail.com>",
   "license": "MIT",
   "devDependencies": {
+    "@tailwindcss/vite": "^4.1.13",
     "@tanstack/react-query": "^5.87.4",
     "@types/node": "^20.11.4",
     "@types/react": "^18.2.37",
@@ -63,8 +64,10 @@
     "react-router-dom": "^6.20.1",
     "rimraf": "^5.0.5",
     "tailwindcss": "^4.1.13",
-    "@tailwindcss/vite": "^4.1.13",
     "typescript": "^5.2.2",
     "vite": "^5.0.0"
+  },
+  "dependencies": {
+    "@types/qs": "^6.14.0"
   }
 }
