@@ -18,4 +18,4 @@ function handler<T extends Record<string, string>>(
 
 export { handler };
 export * from "./interfaces/index.js";
-export * from "./utils.js";
+export * from "./utils/index.js";
