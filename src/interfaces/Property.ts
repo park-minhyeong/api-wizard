@@ -1,4 +1,5 @@
 import { FetchRequestConfig, FetchResponse } from "./Http.js";
+import { ValidateStatus } from "./Fetch.js";
 
 type DataType =
   | "application/json"
@@ -39,6 +40,7 @@ interface Option {
   interceptor?: Interceptor;
   requestConfig?: FetchRequestConfig;
   withCredentials?: boolean;
+  validateStatus?: ValidateStatus;
 }
 
 export type { Option, DataType };

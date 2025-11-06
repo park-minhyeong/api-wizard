@@ -9,25 +9,23 @@ function instance(baseUrl: string, option?: Option): Http {
     option,
   });
   
+  const commonConfig = {
+    baseURL: fetchDefaults.baseURL,
+    headers: fetchDefaults.headers,
+    requestConfig: {
+      credentials: fetchDefaults.credentials,
+      ...fetchRequestConfig
+    },
+    validateStatus: option?.validateStatus
+  };
+  
   // 인터셉터가 있으면 InterceptedFetchClient, 없으면 기본 FetchClientImpl 사용
   const fetchInstance = option?.interceptor 
     ? new InterceptedFetchClient({
-        baseURL: fetchDefaults.baseURL,
-        headers: fetchDefaults.headers,
-        requestConfig: {
-          credentials: fetchDefaults.credentials,
-          ...fetchRequestConfig
-        },
+        ...commonConfig,
         interceptor: option.interceptor
       })
-    : new FetchClientImpl({
-        baseURL: fetchDefaults.baseURL,
-        headers: fetchDefaults.headers,
-        requestConfig: {
-          credentials: fetchDefaults.credentials,
-          ...fetchRequestConfig
-        }
-      });
+    : new FetchClientImpl(commonConfig);
   
   return {
     get: <RES>(url: string, config?: FetchRequestConfig) =>

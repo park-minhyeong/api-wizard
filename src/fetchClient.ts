@@ -63,11 +63,13 @@ export class FetchClientImpl implements FetchClient {
   private baseURL: string;
   private defaultHeaders: HeadersInit;
   private defaultConfig: RequestInit;
+  private defaultValidateStatus: (status: number) => boolean;
 
   constructor(config?: { 
     baseURL?: string; 
     headers?: HeadersInit; 
     requestConfig?: RequestInit;
+    validateStatus?: (status: number) => boolean;
   }) {
     this.baseURL = config?.baseURL || '';
     this.defaultHeaders = {
@@ -78,6 +80,8 @@ export class FetchClientImpl implements FetchClient {
       credentials: 'include',
       ...config?.requestConfig
     };
+    // 기본값: 500번대만 에러로 처리 (현재 동작 유지)
+    this.defaultValidateStatus = config?.validateStatus || ((status: number) => status < 500);
   }
 
   // URL 생성 헬퍼
@@ -127,7 +131,7 @@ export class FetchClientImpl implements FetchClient {
   // Response를 FetchResponse로 변환 (axios 호환 에러 처리)
   private async transformResponse<T>(
     response: Response, 
-    requestConfig: any
+    requestConfig: FetchRequestConfig & { url: string }
   ): Promise<FetchResponse<T>> {
     let data: T;
     
@@ -143,8 +147,12 @@ export class FetchClientImpl implements FetchClient {
       data = null as unknown as T;
     }
 
-    // 500번대 서버 에러만 예외로 처리, 400번대 클라이언트 에러는 정상 응답으로 처리
-    if (!response.ok && response.status >= 500) {
+    // validateStatus를 사용하여 에러 처리
+    // 요청별 validateStatus가 있으면 우선 사용, 없으면 기본값 사용
+    const validateStatus = requestConfig.validateStatus || this.defaultValidateStatus;
+    
+    // validateStatus가 false를 반환하면 에러로 throw
+    if (!validateStatus(response.status)) {
       throw new FetchError(
         response.status, 
         response.statusText, 

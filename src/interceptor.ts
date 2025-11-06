@@ -119,6 +119,7 @@ export class InterceptedFetchClient extends FetchClientImpl {
     headers?: HeadersInit; 
     requestConfig?: RequestInit;
     interceptor?: Interceptor;
+    validateStatus?: (status: number) => boolean;
   }) {
     super(config);
     this.interceptor = config?.interceptor;
@@ -153,9 +154,18 @@ export class InterceptedFetchClient extends FetchClientImpl {
   }
 
   // 응답 인터셉터 처리
+  // validateStatus에 의해서만 에러 처리가 되도록, onResponse에서 에러를 throw해도 무시
   private async handleResponseInterceptor<T>(response: FetchResponse<T>): Promise<FetchResponse<T>> {
     if (this.interceptor?.onResponse) {
-      return this.interceptor.onResponse(response) as FetchResponse<T>;
+      try {
+        const processedResponse = await this.interceptor.onResponse(response);
+        // onResponse가 응답을 반환하면 사용, 에러를 throw하면 원본 응답 반환
+        return processedResponse as FetchResponse<T>;
+      } catch (error) {
+        // onResponse에서 에러를 throw해도 무시하고 원본 응답 반환
+        // validateStatus에 의해서만 에러 처리가 됨
+        return response;
+      }
     }
     return response;
   }
