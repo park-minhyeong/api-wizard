@@ -17,5 +17,9 @@ function handler<T extends Record<string, string>>(
 }
 
 export { handler };
-export * from "./interfaces/index.js";
 export * from "./utils/index.js";
+
+// 타입 명시적 re-export (타입 정의 파일에서만 존재)
+export type { FetchResponse, FetchRequestConfig, FetchParams, ValidateStatus } from "./interfaces/Fetch.js";
+export type { Http, FetchClient } from "./interfaces/Http.js";
+export type { Interceptor, TokenConfig, Option, DataType } from "./interfaces/Property.js";
