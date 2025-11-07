@@ -1,6 +1,6 @@
 {
   "name": "api-wizard",
-  "version": "1.0.22",
+  "version": "1.0.23",
   "description": "A powerful TypeScript wrapper for native Fetch API with token management, interceptors, and type-safe HTTP requests",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
