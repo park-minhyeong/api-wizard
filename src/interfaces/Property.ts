@@ -1,5 +1,4 @@
-import { FetchRequestConfig, FetchResponse } from "./Http.js";
-import { ValidateStatus } from "./Fetch.js";
+import { ValidateStatus, FetchRequestConfig, FetchResponse } from "./Fetch.js";
 
 type DataType =
   | "application/json"

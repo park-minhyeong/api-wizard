@@ -36,4 +36,4 @@ interface FetchClient {
   request: <T>(config: FetchRequestConfig & { url: string }) => Promise<FetchResponse<T>>;
 }
 
-export type { Http, FetchResponse, FetchRequestConfig, FetchClient };
+export type { Http, FetchClient };
