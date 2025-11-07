@@ -1,5 +1,5 @@
 import { FetchClientImpl } from './fetchClient.js';
-import { FetchResponse, FetchRequestConfig } from './interfaces/Http.js';
+import { FetchResponse, FetchRequestConfig } from './interfaces/Fetch.js';
 import { Interceptor, TokenConfig } from './interfaces/Property.js';
 
 interface TokenRefreshResult {
