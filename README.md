@@ -155,7 +155,6 @@ const userApi = api.users({
 const userApi = api.users({
   // API version will be added to base URL
   version: 'v1',
-  
   // Content type configuration
   contentType: 'application/json',
   charset: 'UTF-8',

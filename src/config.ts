@@ -18,19 +18,18 @@ const createFetchDefaults = ({
 }: Partial<CreateFetchDefaultsProps>): FetchDefaults => {
   const {
     version,
-    contentType = "application/json",
+    contentType,
     charset,
     accept,
     withCredentials = true, // 기본값 true (axios와 동일)
   } = option ?? {};
   
+  const headers: Record<string, string> = {};
+  if (contentType) headers["Content-Type"] = [contentType, charset && `; charset=${charset}`].join("");
+  if (accept) headers["Accept"] = accept;
   return {
-    baseURL:
-      typeof version !== "undefined" ? [baseUrl, version].join("/") : baseUrl,
-    headers: {
-      "Content-Type": [contentType, charset && `; charset=${charset}`].join(""),
-      Accept: accept,
-    } as HeadersInit,
+    baseURL: typeof version !== "undefined" ? [baseUrl, version].join("/") : baseUrl,
+    headers: headers as HeadersInit,
     credentials: withCredentials ? "include" : "omit" as RequestCredentials,
   };
 };

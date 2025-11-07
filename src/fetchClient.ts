@@ -72,10 +72,8 @@ export class FetchClientImpl implements FetchClient {
     validateStatus?: (status: number) => boolean;
   }) {
     this.baseURL = config?.baseURL || '';
-    this.defaultHeaders = {
-      'Content-Type': 'application/json',
-      ...config?.headers
-    };
+    // config.headers에 Content-Type이 없으면 기본값으로 추가하지 않음
+    this.defaultHeaders = config?.headers || {};
     this.defaultConfig = {
       credentials: 'include',
       ...config?.requestConfig
