@@ -214,9 +214,9 @@ export class FetchClientImpl implements FetchClient {
   // GET 메서드
   async get<T>(url: string, config?: FetchRequestConfig): Promise<FetchResponse<T>> {
     return this.request<T>({
+      ...config,
       url,
       method: 'GET',
-      ...config
     });
   }
 
@@ -237,10 +237,10 @@ export class FetchClientImpl implements FetchClient {
     }
     
     return this.request<T>({
+      ...config,
       url,
       method: 'POST',
       body,
-      ...config
     });
   }
 
@@ -259,10 +259,10 @@ export class FetchClientImpl implements FetchClient {
     }
     
     return this.request<T>({
+      ...config,
       url,
       method: 'PUT',
       body,
-      ...config
     });
   }
 
@@ -281,19 +281,19 @@ export class FetchClientImpl implements FetchClient {
     }
     
     return this.request<T>({
+      ...config,
       url,
       method: 'PATCH',
       body,
-      ...config
     });
   }
 
   // DELETE 메서드
   async delete<T>(url: string, config?: FetchRequestConfig): Promise<FetchResponse<T>> {
     return this.request<T>({
+      ...config,
       url,
       method: 'DELETE',
-      ...config
     });
   }
 } 
