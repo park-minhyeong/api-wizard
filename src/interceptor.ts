@@ -191,19 +191,20 @@ export class InterceptedFetchClient extends FetchClientImpl {
 
   // request 메서드 오버라이드
   async request<T>(config: FetchRequestConfig & { url: string }): Promise<FetchResponse<T>> {
+    // 요청 인터셉터 적용
+    const processedConfig = await this.handleRequestInterceptor(config);
+    
+    // 원본 요청 실행 함수 (processedConfig 사용)
+    const originalRequest = () => super.request<T>(processedConfig);
+    
     try {
-      // 요청 인터셉터 적용
-      const processedConfig = await this.handleRequestInterceptor(config);
-      
-      // 원본 요청 실행
-      const originalRequest = () => super.request<T>(processedConfig);
       const response = await originalRequest();
       
       // 응답 인터셉터 적용
       return await this.handleResponseInterceptor(response);
     } catch (error) {
-      // 에러 인터셉터 적용
-      return this.handleErrorInterceptor(error, () => super.request<T>(config));
+      // 에러 인터셉터 적용 (processedConfig를 사용하도록 수정)
+      return this.handleErrorInterceptor(error, originalRequest);
     }
   }
 }
