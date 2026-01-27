@@ -176,7 +176,14 @@ export class FetchClientImpl implements FetchClient {
     const { url, params, timeout, baseURL, ...fetchConfig } = config;
     
     const finalURL = this.buildURL(url, params);
-    const headers = this.mergeHeaders(this.defaultHeaders, fetchConfig.headers);
+    let headers = this.mergeHeaders(this.defaultHeaders, fetchConfig.headers);
+    
+    // FormData인 경우 Content-Type 헤더 제거
+    // 브라우저/Node.js가 자동으로 boundary를 포함한 Content-Type 설정
+    if (fetchConfig.body instanceof FormData) {
+      headers = new Headers(headers);
+      headers.delete('content-type');
+    }
     
     const requestConfig: RequestInit = {
       ...this.defaultConfig,
@@ -225,13 +232,22 @@ export class FetchClientImpl implements FetchClient {
     const headers = this.mergeHeaders(this.defaultHeaders, config?.headers);
     const contentType = headers.get('content-type') || '';
     
-    let body: string | undefined;
+    let body: string | FormData | undefined;
+    let finalHeaders = headers;
+    
     if (data) {
-      if (contentType.includes('application/x-www-form-urlencoded')) {
+      // FormData 감지 및 처리
+      if (data instanceof FormData) {
+        body = data;
+        // FormData 사용 시 Content-Type 헤더 제거
+        // 브라우저/Node.js가 자동으로 boundary를 포함한 Content-Type 설정
+        finalHeaders = new Headers(headers);
+        finalHeaders.delete('content-type');
+      } else if (contentType.includes('application/x-www-form-urlencoded')) {
         // form-urlencoded인 경우 그대로 전달 (이미 URLSearchParams.toString()으로 처리됨)
         body = typeof data === 'string' ? data : new URLSearchParams(data).toString();
       } else {
-        // JSON인 경우 JSON.stringify 적용
+        // JSON 데이터 처리 (기본값)
         body = JSON.stringify(data);
       }
     }
@@ -241,6 +257,7 @@ export class FetchClientImpl implements FetchClient {
       url,
       method: 'POST',
       body,
+      headers: finalHeaders,
     });
   }
 
@@ -249,11 +266,21 @@ export class FetchClientImpl implements FetchClient {
     const headers = this.mergeHeaders(this.defaultHeaders, config?.headers);
     const contentType = headers.get('content-type') || '';
     
-    let body: string | undefined;
+    let body: string | FormData | undefined;
+    let finalHeaders = headers;
+    
     if (data) {
-      if (contentType.includes('application/x-www-form-urlencoded')) {
+      // FormData 감지 및 처리
+      if (data instanceof FormData) {
+        body = data;
+        // FormData 사용 시 Content-Type 헤더 제거
+        // 브라우저/Node.js가 자동으로 boundary를 포함한 Content-Type 설정
+        finalHeaders = new Headers(headers);
+        finalHeaders.delete('content-type');
+      } else if (contentType.includes('application/x-www-form-urlencoded')) {
         body = typeof data === 'string' ? data : new URLSearchParams(data).toString();
       } else {
+        // JSON 데이터 처리 (기본값)
         body = JSON.stringify(data);
       }
     }
@@ -263,6 +290,7 @@ export class FetchClientImpl implements FetchClient {
       url,
       method: 'PUT',
       body,
+      headers: finalHeaders,
     });
   }
 
@@ -271,11 +299,21 @@ export class FetchClientImpl implements FetchClient {
     const headers = this.mergeHeaders(this.defaultHeaders, config?.headers);
     const contentType = headers.get('content-type') || '';
     
-    let body: string | undefined;
+    let body: string | FormData | undefined;
+    let finalHeaders = headers;
+    
     if (data) {
-      if (contentType.includes('application/x-www-form-urlencoded')) {
+      // FormData 감지 및 처리
+      if (data instanceof FormData) {
+        body = data;
+        // FormData 사용 시 Content-Type 헤더 제거
+        // 브라우저/Node.js가 자동으로 boundary를 포함한 Content-Type 설정
+        finalHeaders = new Headers(headers);
+        finalHeaders.delete('content-type');
+      } else if (contentType.includes('application/x-www-form-urlencoded')) {
         body = typeof data === 'string' ? data : new URLSearchParams(data).toString();
       } else {
+        // JSON 데이터 처리 (기본값)
         body = JSON.stringify(data);
       }
     }
@@ -285,6 +323,7 @@ export class FetchClientImpl implements FetchClient {
       url,
       method: 'PATCH',
       body,
+      headers: finalHeaders,
     });
   }
 
