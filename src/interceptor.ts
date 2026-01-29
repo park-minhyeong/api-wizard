@@ -125,13 +125,49 @@ export class InterceptedFetchClient extends FetchClientImpl {
     this.interceptor = config?.interceptor;
   }
 
+  // HeadersList/Headers 인스턴스인지 확인하는 헬퍼
+  private isHeadersInstance(headers: any): headers is Headers {
+    return headers instanceof Headers || 
+           (headers && typeof headers.set === 'function' && typeof headers.get === 'function');
+  }
+
+  // Headers를 안전하게 병합하는 헬퍼
+  private mergeHeadersSafely(targetHeaders: HeadersInit | undefined, sourceHeaders: Record<string, string>): HeadersInit {
+    // targetHeaders가 Headers 인스턴스인 경우
+    if (this.isHeadersInstance(targetHeaders)) {
+      const result = new Headers(targetHeaders);
+      Object.entries(sourceHeaders).forEach(([key, value]) => {
+        if (value !== undefined) result.set(key, value);
+      });
+      return result;
+    }
+    // 일반 객체인 경우
+    return {
+      ...(targetHeaders as Record<string, string> || {}),
+      ...sourceHeaders
+    };
+  }
+
   // 요청 인터셉터 처리
   private async handleRequestInterceptor(config: FetchRequestConfig & { url: string }): Promise<FetchRequestConfig & { url: string }> {
+    // HeadersList/Headers를 보존하기 위해 얕은 복사 사용
     let processedConfig = { ...config };
+    
+    // headers가 Headers 인스턴스인 경우 보존
+    if (this.isHeadersInstance(config.headers)) {
+      processedConfig.headers = config.headers;
+    }
 
     // 사용자 정의 요청 인터셉터
     if (this.interceptor?.onRequest) {
       processedConfig = this.interceptor.onRequest(processedConfig);
+      
+      // interceptor 후에도 Headers 인스턴스 확인 및 보존
+      if (this.isHeadersInstance(processedConfig.headers)) {
+        // Headers 인스턴스는 그대로 유지
+      } else if (processedConfig.headers && typeof processedConfig.headers === 'object') {
+        // 일반 객체로 변환된 경우 Headers로 재변환하지 않음 (fetchClient의 mergeHeaders가 처리)
+      }
     }
 
     // 토큰 자동 추가
@@ -143,10 +179,8 @@ export class InterceptedFetchClient extends FetchClientImpl {
           token
         );
         
-        processedConfig.headers = {
-          ...processedConfig.headers,
-          ...authHeaders
-        };
+        // Headers 인스턴스인 경우 set 메서드 사용, 아니면 병합
+        processedConfig.headers = this.mergeHeadersSafely(processedConfig.headers, authHeaders);
       }
     }
 

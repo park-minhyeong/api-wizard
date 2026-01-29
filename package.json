@@ -20,6 +20,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test:stability": "npm run deploy:build && node test-stability.mjs",
     "deploy:build": "rimraf ./dist && tsc -p tsconfig.build.json --noEmit false",
     "deploy:setup": "node setupPackage.js",
     "deploy": "npm run deploy:build && npm version patch && npm run deploy:setup && cd dist && npm publish && git push && git push --tags"

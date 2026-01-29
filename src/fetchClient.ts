@@ -126,6 +126,67 @@ export class FetchClientImpl implements FetchClient {
     return result;
   }
 
+  // 일반 객체를 FormData로 변환하는 헬퍼
+  // Node.js와 브라우저 모두에서 동작
+  private objectToFormData(obj: any): FormData {
+    const formData = new FormData();
+    
+    // File 클래스가 있는지 확인 (브라우저 또는 Node.js 18+)
+    const FileClass = typeof File !== 'undefined' ? File : null;
+    const BlobClass = typeof Blob !== 'undefined' ? Blob : null;
+    
+    const appendValue = (key: string, value: any, parentKey?: string) => {
+      const formKey = parentKey ? `${parentKey}[${key}]` : key;
+      
+      if (value === null || value === undefined) {
+        return; // null/undefined는 무시
+      }
+      
+      // File, Blob, ArrayBuffer 등은 그대로 추가
+      if (FileClass && value instanceof FileClass) {
+        formData.append(formKey, value);
+      } else if (BlobClass && value instanceof BlobClass) {
+        formData.append(formKey, value);
+      } else if (value instanceof ArrayBuffer || (typeof SharedArrayBuffer !== 'undefined' && value instanceof SharedArrayBuffer)) {
+        if (BlobClass) {
+          formData.append(formKey, new BlobClass([value as BlobPart]));
+        } else {
+          // Blob이 없는 환경에서는 Uint8Array로 변환
+          const uint8Array = new Uint8Array(value as ArrayBuffer);
+          formData.append(formKey, new Blob([uint8Array as BlobPart]));
+        }
+      } else if (ArrayBuffer.isView(value)) {
+        // TypedArray (Uint8Array 등) 처리
+        const buffer = value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength);
+        if (BlobClass) {
+          formData.append(formKey, new BlobClass([buffer as BlobPart]));
+        } else {
+          const uint8Array = new Uint8Array(buffer);
+          formData.append(formKey, new Blob([uint8Array as BlobPart]));
+        }
+      } else if (Array.isArray(value)) {
+        // 배열은 각 요소를 인덱스로 추가
+        value.forEach((item, index) => {
+          appendValue(String(index), item, formKey);
+        });
+      } else if (typeof value === 'object' && value.constructor === Object) {
+        // 중첩 객체는 재귀적으로 처리
+        Object.keys(value).forEach(subKey => {
+          appendValue(subKey, value[subKey], formKey);
+        });
+      } else {
+        // 기본 타입 (string, number, boolean 등)은 문자열로 변환
+        formData.append(formKey, String(value));
+      }
+    };
+    
+    Object.keys(obj).forEach(key => {
+      appendValue(key, obj[key]);
+    });
+    
+    return formData;
+  }
+
   // Response를 FetchResponse로 변환 (axios 호환 에러 처리)
   private async transformResponse<T>(
     response: Response, 
@@ -230,7 +291,7 @@ export class FetchClientImpl implements FetchClient {
   // POST 메서드  
   async post<T>(url: string, data?: any, config?: FetchRequestConfig): Promise<FetchResponse<T>> {
     const headers = this.mergeHeaders(this.defaultHeaders, config?.headers);
-    const contentType = headers.get('content-type') || '';
+    let contentType = headers.get('content-type') || '';
     
     let body: string | FormData | undefined;
     let finalHeaders = headers;
@@ -243,12 +304,23 @@ export class FetchClientImpl implements FetchClient {
         // 브라우저/Node.js가 자동으로 boundary를 포함한 Content-Type 설정
         finalHeaders = new Headers(headers);
         finalHeaders.delete('content-type');
+      } else if (contentType.includes('multipart/form-data')) {
+        // multipart/form-data로 설정된 경우 일반 객체를 FormData로 자동 변환
+        body = this.objectToFormData(data);
+        // FormData 사용 시 Content-Type 헤더 제거
+        finalHeaders = new Headers(headers);
+        finalHeaders.delete('content-type');
       } else if (contentType.includes('application/x-www-form-urlencoded')) {
         // form-urlencoded인 경우 그대로 전달 (이미 URLSearchParams.toString()으로 처리됨)
         body = typeof data === 'string' ? data : new URLSearchParams(data).toString();
       } else {
         // JSON 데이터 처리 (기본값)
         body = JSON.stringify(data);
+        // Content-Type이 지정되지 않았으면 기본값으로 application/json 설정
+        if (!contentType) {
+          finalHeaders = new Headers(headers);
+          finalHeaders.set('content-type', 'application/json');
+        }
       }
     }
     
@@ -264,7 +336,7 @@ export class FetchClientImpl implements FetchClient {
   // PUT 메서드
   async put<T>(url: string, data?: any, config?: FetchRequestConfig): Promise<FetchResponse<T>> {
     const headers = this.mergeHeaders(this.defaultHeaders, config?.headers);
-    const contentType = headers.get('content-type') || '';
+    let contentType = headers.get('content-type') || '';
     
     let body: string | FormData | undefined;
     let finalHeaders = headers;
@@ -277,11 +349,22 @@ export class FetchClientImpl implements FetchClient {
         // 브라우저/Node.js가 자동으로 boundary를 포함한 Content-Type 설정
         finalHeaders = new Headers(headers);
         finalHeaders.delete('content-type');
+      } else if (contentType.includes('multipart/form-data')) {
+        // multipart/form-data로 설정된 경우 일반 객체를 FormData로 자동 변환
+        body = this.objectToFormData(data);
+        // FormData 사용 시 Content-Type 헤더 제거
+        finalHeaders = new Headers(headers);
+        finalHeaders.delete('content-type');
       } else if (contentType.includes('application/x-www-form-urlencoded')) {
         body = typeof data === 'string' ? data : new URLSearchParams(data).toString();
       } else {
         // JSON 데이터 처리 (기본값)
         body = JSON.stringify(data);
+        // Content-Type이 지정되지 않았으면 기본값으로 application/json 설정
+        if (!contentType) {
+          finalHeaders = new Headers(headers);
+          finalHeaders.set('content-type', 'application/json');
+        }
       }
     }
     
@@ -297,7 +380,7 @@ export class FetchClientImpl implements FetchClient {
   // PATCH 메서드
   async patch<T>(url: string, data?: any, config?: FetchRequestConfig): Promise<FetchResponse<T>> {
     const headers = this.mergeHeaders(this.defaultHeaders, config?.headers);
-    const contentType = headers.get('content-type') || '';
+    let contentType = headers.get('content-type') || '';
     
     let body: string | FormData | undefined;
     let finalHeaders = headers;
@@ -310,11 +393,22 @@ export class FetchClientImpl implements FetchClient {
         // 브라우저/Node.js가 자동으로 boundary를 포함한 Content-Type 설정
         finalHeaders = new Headers(headers);
         finalHeaders.delete('content-type');
+      } else if (contentType.includes('multipart/form-data')) {
+        // multipart/form-data로 설정된 경우 일반 객체를 FormData로 자동 변환
+        body = this.objectToFormData(data);
+        // FormData 사용 시 Content-Type 헤더 제거
+        finalHeaders = new Headers(headers);
+        finalHeaders.delete('content-type');
       } else if (contentType.includes('application/x-www-form-urlencoded')) {
         body = typeof data === 'string' ? data : new URLSearchParams(data).toString();
       } else {
         // JSON 데이터 처리 (기본값)
         body = JSON.stringify(data);
+        // Content-Type이 지정되지 않았으면 기본값으로 application/json 설정
+        if (!contentType) {
+          finalHeaders = new Headers(headers);
+          finalHeaders.set('content-type', 'application/json');
+        }
       }
     }
     
