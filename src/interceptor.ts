@@ -148,25 +148,78 @@ export class InterceptedFetchClient extends FetchClientImpl {
     };
   }
 
+  // Headers를 일반 객체로 변환하는 헬퍼
+  private headersToObject(headers: Headers): Record<string, string> {
+    const obj: Record<string, string> = {};
+    headers.forEach((value, key) => {
+      obj[key] = value;
+    });
+    return obj;
+  }
+
+  // 일반 객체를 Headers로 변환하는 헬퍼
+  private convertToHeaders(headersObject: Record<string, any>): Headers {
+    const newHeaders = new Headers();
+    Object.entries(headersObject).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        newHeaders.set(key, String(value));
+      }
+    });
+    return newHeaders;
+  }
+
   // 요청 인터셉터 처리
   private async handleRequestInterceptor(config: FetchRequestConfig & { url: string }): Promise<FetchRequestConfig & { url: string }> {
     // HeadersList/Headers를 보존하기 위해 얕은 복사 사용
     let processedConfig = { ...config };
     
-    // headers가 Headers 인스턴스인 경우 보존
-    if (this.isHeadersInstance(config.headers)) {
+    // headers가 Headers 인스턴스인 경우 보존하되, onRequest에서 사용할 수 있도록 일반 객체로도 변환 가능
+    const wasHeaders = this.isHeadersInstance(config.headers);
+    if (wasHeaders) {
       processedConfig.headers = config.headers;
     }
 
     // 사용자 정의 요청 인터셉터
     if (this.interceptor?.onRequest) {
-      processedConfig = this.interceptor.onRequest(processedConfig);
+      const result = await this.interceptor.onRequest(processedConfig);
       
-      // interceptor 후에도 Headers 인스턴스 확인 및 보존
-      if (this.isHeadersInstance(processedConfig.headers)) {
-        // Headers 인스턴스는 그대로 유지
-      } else if (processedConfig.headers && typeof processedConfig.headers === 'object') {
-        // 일반 객체로 변환된 경우 Headers로 재변환하지 않음 (fetchClient의 mergeHeaders가 처리)
+      // 하위 호환성: onRequest가 undefined를 반환하거나 아무것도 반환하지 않는 경우 처리
+      if (result === undefined || result === null) {
+        // 원본 config 사용 (하위 호환성)
+        processedConfig = processedConfig;
+      } else {
+        processedConfig = result;
+      }
+      
+      // ✅ 개선: 일반 객체로 변환된 경우 Headers로 자동 재변환
+      if (processedConfig && 
+          !this.isHeadersInstance(processedConfig.headers) && 
+          processedConfig.headers && 
+          typeof processedConfig.headers === 'object' &&
+          !Array.isArray(processedConfig.headers)) {
+        
+        // 개발 모드에서만 경고 (성능 최적화)
+        if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development' && wasHeaders) {
+          console.warn(
+            '[api-wizard] onRequest 인터셉터에서 Headers를 일반 객체로 변환했습니다. ' +
+            '자동으로 Headers로 재변환합니다. ' +
+            '성능을 위해 Headers.set() 메서드를 사용하는 것을 권장합니다.'
+          );
+        }
+        
+        // 일반 객체를 Headers로 재변환
+        // 단, 원본 Headers가 있었던 경우 그 값들을 먼저 병합
+        const headersObject = processedConfig.headers as Record<string, any>;
+        if (wasHeaders && config.headers instanceof Headers) {
+          // 원본 Headers의 모든 값을 먼저 추가
+          const originalHeadersObj = this.headersToObject(config.headers);
+          processedConfig.headers = this.convertToHeaders({
+            ...originalHeadersObj,
+            ...headersObject
+          });
+        } else {
+          processedConfig.headers = this.convertToHeaders(headersObject);
+        }
       }
     }
 
