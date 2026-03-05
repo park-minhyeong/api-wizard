@@ -421,12 +421,71 @@ export class FetchClientImpl implements FetchClient {
     });
   }
 
-  // DELETE 메서드
-  async delete<T>(url: string, config?: FetchRequestConfig): Promise<FetchResponse<T>> {
+  // DELETE 메서드 (body 지원)
+  async delete<T>(url: string, dataOrConfig?: any, config?: FetchRequestConfig): Promise<FetchResponse<T>> {
+    // 하위 호환성 유지를 위해 두 번째 인자가 config인지 data인지 판별
+    let data: any | undefined;
+    let finalConfig: FetchRequestConfig | undefined;
+
+    const looksLikeConfig = (value: any): value is FetchRequestConfig => {
+      if (!value || typeof value !== 'object') return false;
+      const possibleKeys = ['headers', 'params', 'timeout', 'baseURL', 'method', 'body', 'signal', 'validateStatus', 'credentials'];
+      return possibleKeys.some((key) => key in value);
+    };
+
+    if (config !== undefined) {
+      // delete(url, data, config)
+      data = dataOrConfig;
+      finalConfig = config;
+    } else if (looksLikeConfig(dataOrConfig)) {
+      // 기존 패턴: delete(url, config)
+      data = undefined;
+      finalConfig = dataOrConfig;
+    } else {
+      // 신규 패턴: delete(url, data)
+      data = dataOrConfig;
+      finalConfig = undefined;
+    }
+
+    const headers = this.mergeHeaders(this.defaultHeaders, finalConfig?.headers);
+    let contentType = headers.get('content-type') || '';
+
+    let body: string | FormData | undefined;
+    let finalHeaders = headers;
+
+    if (data) {
+      // FormData 감지 및 처리
+      if (data instanceof FormData) {
+        body = data;
+        // FormData 사용 시 Content-Type 헤더 제거
+        // 브라우저/Node.js가 자동으로 boundary를 포함한 Content-Type 설정
+        finalHeaders = new Headers(headers);
+        finalHeaders.delete('content-type');
+      } else if (contentType.includes('multipart/form-data')) {
+        // multipart-form-data로 설정된 경우 일반 객체를 FormData로 자동 변환
+        body = this.objectToFormData(data);
+        // FormData 사용 시 Content-Type 헤더 제거
+        finalHeaders = new Headers(headers);
+        finalHeaders.delete('content-type');
+      } else if (contentType.includes('application/x-www-form-urlencoded')) {
+        body = typeof data === 'string' ? data : new URLSearchParams(data).toString();
+      } else {
+        // JSON 데이터 처리 (기본값)
+        body = JSON.stringify(data);
+        // Content-Type이 지정되지 않았으면 기본값으로 application/json 설정
+        if (!contentType) {
+          finalHeaders = new Headers(headers);
+          finalHeaders.set('content-type', 'application/json');
+        }
+      }
+    }
+
     return this.request<T>({
-      ...config,
+      ...finalConfig,
       url,
       method: 'DELETE',
+      body,
+      headers: finalHeaders,
     });
   }
 } 

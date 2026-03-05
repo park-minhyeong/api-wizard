@@ -36,8 +36,27 @@ function instance(baseUrl: string, option?: Option): Http {
       fetchInstance.put<RES>(url, data, { ...fetchRequestConfig, ...config }),
     patch: <REQ, RES>(url: string, data?: REQ, config?: FetchRequestConfig) =>
       fetchInstance.patch<RES>(url, data, { ...fetchRequestConfig, ...config }),
-    delete: <RES>(url: string, config?: FetchRequestConfig) =>
-      fetchInstance.delete<RES>(url, { ...fetchRequestConfig, ...config }),
+    delete: <REQ, RES>(url: string, dataOrConfig?: REQ | FetchRequestConfig, config?: FetchRequestConfig) => {
+      // 하위 호환성: delete(url, config) vs delete(url, data, config) vs delete(url, data)
+      const looksLikeConfig = (value: any): value is FetchRequestConfig => {
+        if (!value || typeof value !== 'object') return false;
+        const possibleKeys = ['headers', 'params', 'timeout', 'baseURL', 'method', 'body', 'signal', 'validateStatus', 'credentials'];
+        return possibleKeys.some((key) => key in value);
+      };
+
+      if (config !== undefined) {
+        // delete(url, data, config)
+        return fetchInstance.delete<RES>(url, dataOrConfig as REQ, { ...fetchRequestConfig, ...config });
+      }
+
+      if (looksLikeConfig(dataOrConfig)) {
+        // 기존 패턴: delete(url, config)
+        return fetchInstance.delete<RES>(url, undefined, { ...fetchRequestConfig, ...(dataOrConfig as FetchRequestConfig) });
+      }
+
+      // 신규 패턴: delete(url, data)
+      return fetchInstance.delete<RES>(url, dataOrConfig as REQ, { ...fetchRequestConfig });
+    },
     getInstance: () => fetchInstance
   };
 }
